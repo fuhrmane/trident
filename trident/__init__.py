@@ -36,6 +36,7 @@ from trident.ion_balance import \
     add_ion_density_field, \
     add_ion_mass_field, \
     solar_abundance, \
+    some_rad_science, \
     atomic_mass
 
 from trident.instrument import \

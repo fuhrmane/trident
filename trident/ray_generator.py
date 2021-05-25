@@ -246,6 +246,7 @@ def make_simple_ray(dataset_file, start_position, end_position,
                                         fields, ftype, sampling_type)
 
         # actually add the fields we need to add to the dataset
+        print('made it to add_ion_number_density_field in make_simple_ray in ray_generator.py')
         for atom, ion_state in fields_to_add_to_ds:
             add_ion_number_density_field(atom, ion_state, ds,
                                          ftype=ftype,
@@ -574,7 +575,7 @@ def make_compound_ray(parameter_filename, simulation_type,
         # as it is loaded by make_light_ray()
 
         def setup_ds(ds):
-
+            print('Made it to add_ion_number_density_field in make_compound_ray in ray_generator')
             for atom, ion_state in fields_to_add_to_ds:
                 add_ion_number_density_field(atom, ion_state, ds,
                                             ftype=ftype,

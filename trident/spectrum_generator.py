@@ -358,12 +358,16 @@ class SpectrumGenerator(AbsorptionSpectrum):
         >>> sg.plot_spectrum('spec_raw.png')
         """
         self.observing_redshift = observing_redshift
+        
 
         if isinstance(ray, str):
+            print('THE RAY IS A STRING')
             ray = load(ray)
         if isinstance(ray, Dataset):
+            print('THE RAY IS A DATASET')
             ad = ray.all_data()
         elif isinstance(ray, YTDataContainer):
+            print('THE RAY IS A YTDATACONTAINER')
             ad = ray
             ray = ad.ds
         else:
@@ -389,6 +393,7 @@ class SpectrumGenerator(AbsorptionSpectrum):
                 # because there is only one naming convention for these fields:
                 # X_pY_number_density
                 if on_ion[1]:
+                    print('made it to add_ion_number_density_field in make_spectrum in     spectrum_generator.py')
                     my_lev = int(on_ion[1][1:]) + 1
                     mylog.info("Creating %s from ray's density, "
                                "temperature, metallicity." % (line.field))
@@ -428,7 +433,7 @@ class SpectrumGenerator(AbsorptionSpectrum):
                                                   element='H', ion_state='I')
         if len(H_lines) > 0 and ly_continuum:
             self.add_continuum('Ly C', H_lines[0].field, 912.32336, 1.6e17, 3.0)
-
+        print('Made it to make_spectrum in make_spectrum in spectrum_generator.py')
         AbsorptionSpectrum.make_spectrum(self, ad,
                                          output_file=None,
                                          line_list_file=None,

@@ -1,3 +1,4 @@
+
 """
 LightRay class and member functions.
 
@@ -506,7 +507,10 @@ class LightRay(CosmologySplice):
                                            filename=solution_filename)
 
         if field_parameters is None:
+            print('NO FIELD PARAMS USED IN MAKE_LIGHT_RAY IN LIGHT_RAY.PY')
             field_parameters = {}
+        else:
+            print('FIELD PARAMS USED IN MAKE_LIGHT_RAY IN LIGHT_RAY.PY')
 
         # Initialize data structures.
         self._data = {}

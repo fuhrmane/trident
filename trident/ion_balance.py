@@ -327,6 +327,7 @@ def add_ion_fields(ds, ions, ftype='gas',
     # - X_P#_ion_fraction
     # - X_P#_number_density
     # - X_P#_density
+    print('Made it to add_ion_mass_field in add_ion_fields in ion_balance.py')
     for (atom, ion) in ion_list:
         add_ion_mass_field(atom, ion, ds, ftype, ionization_table,
             field_suffix=field_suffix, sampling_type=sampling_type)
@@ -582,6 +583,7 @@ def add_ion_number_density_field(atom, ion, ds, ftype="gas",
     add_ion_fraction_field(atom, ion, ds, ftype, ionization_table,
                            field_suffix=field_suffix,
                            sampling_type=sampling_type)
+    print('Made it to add_ion_number_density_field in ion_balance.py')
     _add_field(ds, (ftype, field),function=_ion_number_density,
                units="cm**-3", sampling_type=sampling_type)
     if ion == 1: # add aliased field too
@@ -706,6 +708,7 @@ def add_ion_density_field(atom, ion, ds, ftype="gas",
     add_ion_number_density_field(atom, ion, ds, ftype, ionization_table,
                                  field_suffix=field_suffix,
                                  sampling_type=sampling_type)
+    print("made it to _add_field in add_ion_density_field in ion_balance.py")
     _add_field(ds, (ftype, field), function=_ion_density,
                units="g/cm**3", sampling_type=sampling_type)
     if ion == 1: # add aliased field too
@@ -828,6 +831,7 @@ def add_ion_mass_field(atom, ion, ds, ftype="gas",
         if ion == 1:
             alias_field += "_%s" % ionization_table.split(os.sep)[-1].split(".h5")[0]
 
+    print('Made it to add_ion_density_field in add_ion_mass_field in ion_balance.py')
     add_ion_density_field(atom, ion, ds, ftype, ionization_table,
                           field_suffix=field_suffix,
                           sampling_type=sampling_type)
@@ -917,11 +921,18 @@ def _ion_number_density(field, data):
           data[ftype, "density"] * \
           data[ftype, metallicity_field] / \
           atomic_mass[atom] / mh
+    print('Made it to _ion_number_density')
+    if data.has_field_parameter("reading_func_args"):
+    	print('FIELD PARAMS MADE IT TO _ION_NUMBER_DENSITY')
+    	data.get_field_parameter("reading_func_args", reading_func_args)
+    	really_cool_numbers = some_rad_science(**reading_func_args)
+    else:
+    	really_cool_numbers = some_rad_science()
 
     if atom == 'H' or atom == 'He':
-        number_density = solar_abundance[atom] * data[fraction_field_name]
+        number_density = really_cool_numbers[atom] * data[fraction_field_name]
     else:
-        number_density = data.ds.quan(solar_abundance[atom], "1.0/Zsun") * \
+        number_density = data.ds.quan(really_cool_numbers[atom], "1.0/Zsun") * \
           data[ftype, fraction_field_name] * \
           data[ftype, "metallicity"]
     # convert to number density
@@ -1015,6 +1026,7 @@ def _add_field(ds, name, function, units, sampling_type):
         mylog.warning("Field %s already exists. Not clobbering." % str(name))
         return
     else:
+        print('Made it to _add_field in ion_balance.py')
         return ds.add_field(name, function=function, units=units,
                             sampling_type=sampling_type)
 
@@ -1033,8 +1045,177 @@ def _alias_field(ds, alias_name, name):
         ds.derived_field_list.append(alias_name)
     return
 
+def some_rad_science(filename = None, modify_solar = False, ratios = True, **reading_func_args):
+    """
+    Dictates stellar abundances used in calculating ion balances.
+    If filename = None, solar abundances will be used. None is the default.
+    Modify_solar = False is the default:
+    If modify_solar = False, will return data input as a dictionary. Only those elements    and values provided will be
+    used in calculating ion balances. 
+If modify_solar = True, switch out element values provided with solar abundances for those elements and provide
+full dictionary of first 30 elements in periodic table having modified abundances provided by data. All else is same
+Ratios = True is the default:
+If ratios = False, data values will not be changed.
+If ratios = True, data values will be adjusted to accomodate chemical abundance ratios (see def fix_elements, 
+which is called in def find_elements)
+Right now, only works with datasets able to be read in as a pandas dataframe (see            read_filetype doc string)
+    """
+    def read_filetype(filename, what_filetype = False, **kwargs):  
+        """
+    loads data into pandas dataframe
+    accaptable filetypes: 
+    --> csv, txt, ods, odt, xls, xlsx, xlsm, xlsb, odf, html, fwf, json, orc, h5, hdf5
+        """ 
+        import pandas as pd
+        if what_filetype is not False: #may not even need this but she's here lolololol
+            print('accaptable filetypes: csv, txt, ods, odt, xls, xlsx, xlsm, xlsb, odf, 			   html, fwf, json, orc, h5, hdf5')
+        path, extension = filename.split('.')
+        if '/' in path:
+            path_list = filename.split('/')
+            name = path_list[-1]
+            print('path was given. name is {}'.format(name))
+        else:
+            name = filename
+            print('only filename was given. name is {}'.format(name))
+        if extension == 'csv' or extension == 'txt':
+            data = pd.read_csv(name, **kwargs)
+        if extension == 'ods' or extension == 'odt' or extension == 'xls' or extension == 		'xlsx' or extension == 'xlsm' or extension == 'xlsb' or extension == 'odf':
+            data = pd.read_excel(name, **kwargs)
+        if extension == 'html':
+            data = pd.read_html(name, **kwargs)
+        if extension == 'fwf':
+            data = pd.read_fwf(name, **kwargs)
+        if extension == 'json':
+            data = pdread_json(name, **kwargs)
+        if extension == 'orc':
+            data = pd.read_orc(name, **kwargs)
+        if extension == 'h5' or extension == 'hdf5':
+            assert '/' in path, 'pandas hdf reader requires filepath'
+            data = pd.read_hdf(filename, **kwargs)
+        return data
+ 
+    def fix_elements(data): #technically newest_data
+        """
+    calculates abundance ratios for star/thing that we care about given a dataset
+    keys have already been fixed using fix_key for indexing and matching to solar_abundance
+        """
+        print('Made it to fix_elements in reading_func')
+        g1 = data['Fe/H'] #g1, for given data value #1 -- number density of iron to hydrogen 			    of star/thing we care about
+        s1 = really_cool_numbers['Fe'] #s1, for solar data value #1 -- number density of iron to 				     hydrogen of Sun
+        t1 = s1*(10**g1)
+        dic = {}
+        dic['Fe'] = t1
+        for key in really_cool_numbers.keys():
+            if key in data.keys():
+                if key == "Fe": # since we have already fixed the keys to match keys of 					   SolAb, this should work
+                    pass
+                else:
+                    t2 = (really_cool_numbers[key] / s1) * (10**data[key])
+                    T = t1 * t2
+                    dic[key] = T
+        return dic
+    def fix_key(data): 
+        """
+        amends element keys to ensure they match that of solar 
+        abundances dictionary for indexing/comparing purposes
+        Handy for data given in ratios 
+        Returns new dictionary with updated keys and unchanged elements
+        """
+        """
+        convert data to dictionary and ensure each entry is a float and not a list
+        """
+        new_data = data.to_dict(orient='list') 
+        for i in new_data:
+            new_data[i] = sum(new_data[i])
+        """
+        Make list of keys from data dictionary
+        """ 
+        keys = list(new_data.keys())
+        string = []
+        for i in keys:
+            if len(i) == 1 or i[1] == '/':
+                string.append(i[0])
+            else:
+                string.append(i[0] + i[1])
+        """
+        Make new dictionary with new keys and unchanged elements
+        """
+        newest_data = {}
+        for key, i in zip(new_data.keys(), string):
+            newest_data[i] = new_data[key]
+        return newest_data
+    
+    def find_elements(filename, really_cool_numbers, modify_solar = False, ratios = True,    **reading_func_args):
+        """
+        fixes keys to be consistent with format of keys in solar_abundance
+
+        If modify_solar = False:
+        if ratios = False:
+        -No values are changed. Returns a dictionary of data provided to be passed to 		 ion_balance. 
+        if ratios = True:
+        -fix_elements is called. Returns a dictionary of corrected ratios to be passed to 		 ion_balance
+        If modify_solar = True:
+        if ratios = False:
+        -matches keys of data provided with keys of solar_abundance. If a match is found, 		 replaces 
+        value in solar_abundance with value in data provided. Returns solar_abundance 		dictionary with updata
+        values to pass to ion_balance
+        if ratios = True: 
+        -fix_elements is called. Uses dictionary of corrected ratios to match keys of fixed 	 data to keys 
+        -of solar_abundance. If a match is found, replaces value in solar_abundance with 		 value from 
+        -fix_elements dictionary. Returns solar_abundance dictionary with updated values to 	 pass to 
+        -ion_balance
+
+        ratios should only be False if data provided has already been corrected 
+        """
+        print('Made it to find_elements in some_rad_science')
+        if type(reading_func_args.pop('kwargs', None)) == dict:
+            kwargs = reading_func_args.pop('kwargs', None)
+            data = read_filetype(filename, **kwargs) 
+        else: 
+            data = read_filetype(filename)
+        newest_data = fix_keys(data)
+        if modify_solar == False:
+            if ratios == False:
+                adjusted_data = newest_data
+            if ratios is not False:
+                adjusted_data = fix_elements(newest_data)
+            return adjusted_data
+        if modify_solar is not False:
+            if ratios == False:
+                for key in really_cool_numbers.keys():
+                    if key in newest_data.keys():
+                        really_cool_numbers[key] = newest_data[key]
+                        print(f'an element was changed to {really_cool_numbers[key]}')
+            if ratios is not False:
+                adjusted_data = fix_elements(newest_data)
+                for key in really_cool_numbers.keys():
+                    if key in adjusted_data.keys():
+                        really_cool_numbers[key] = adjusted_data[key]
+                        print(f'an element was changed to {really_cool_numbers[key]}')
+            return really_cool_numbers
+
+    
+    really_cool_numbers = {
+        'H' : 1.00e+00, 'He': 1.00e-01, 'Li': 2.04e-09,
+        'Be': 2.63e-11, 'B' : 6.17e-10, 'C' : 2.45e-04,
+        'N' : 8.51e-05, 'O' : 4.90e-04, 'F' : 3.02e-08,
+        'Ne': 1.00e-04, 'Na': 2.14e-06, 'Mg': 3.47e-05,
+        'Al': 2.95e-06, 'Si': 3.47e-05, 'P' : 3.20e-07,
+        'S' : 1.84e-05, 'Cl': 1.91e-07, 'Ar': 2.51e-06,
+        'K' : 1.32e-07, 'Ca': 2.29e-06, 'Sc': 1.48e-09,
+        'Ti': 1.05e-07, 'V' : 1.00e-08, 'Cr': 4.68e-07,
+        'Mn': 2.88e-07, 'Fe': 2.82e-05, 'Co': 8.32e-08,
+        'Ni': 1.78e-06, 'Cu': 1.62e-08, 'Zn': 3.98e-08}
+    if filename is not None:
+            #print('USING FILE')
+            print("Buckle up bc shit's about to get wriggity wRIGGITY WRECKED SON")
+            really_cool_numbers = find_elements(filename, **reading_func_args)
+
+    return really_cool_numbers
+    
 
 # Taken from Cloudy documentation.
+
 solar_abundance = {
     'H' : 1.00e+00, 'He': 1.00e-01, 'Li': 2.04e-09,
     'Be': 2.63e-11, 'B' : 6.17e-10, 'C' : 2.45e-04,
@@ -1046,6 +1227,7 @@ solar_abundance = {
     'Ti': 1.05e-07, 'V' : 1.00e-08, 'Cr': 4.68e-07,
     'Mn': 2.88e-07, 'Fe': 2.82e-05, 'Co': 8.32e-08,
     'Ni': 1.78e-06, 'Cu': 1.62e-08, 'Zn': 3.98e-08}
+
 
 atomic_mass = {
     'H' : 1.00794,   'He': 4.002602,  'Li': 6.941,
