@@ -924,7 +924,7 @@ def _ion_number_density(field, data):
     print('Made it to _ion_number_density')
     if data.has_field_parameter("reading_func_args"):
     	print('FIELD PARAMS MADE IT TO _ION_NUMBER_DENSITY')
-    	data.get_field_parameter("reading_func_args", reading_func_args)
+    	reading_func_args = data.get_field_parameter("reading_func_args")
     	really_cool_numbers = some_rad_science(**reading_func_args)
     else:
     	really_cool_numbers = some_rad_science()

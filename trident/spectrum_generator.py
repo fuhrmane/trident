@@ -246,6 +246,7 @@ class SpectrumGenerator(AbsorptionSpectrum):
                       observing_redshift=0.0,
                       ly_continuum=True,
                       store_observables=False,
+                      abundance_table_args=None,
                       min_tau=1e-3,
                       njobs="auto"):
         """
@@ -321,6 +322,10 @@ class SpectrumGenerator(AbsorptionSpectrum):
             attribute: 'line_observables_dict'.
             Default: False
 
+        :adundance_table_args: optional, dictionary
+
+           Dictionary of parameters for reading alternative abundance data.
+
         :min_tau: optional, float
            This value determines size of the wavelength window used to
            deposit lines or continua.  The wavelength window is expanded
@@ -386,6 +391,12 @@ class SpectrumGenerator(AbsorptionSpectrum):
                 ad._determine_fields(line.field)[0]
             # otherwise we probably need to add the field to the dataset
             except BaseException:
+
+                if abundance_table_args is not None:
+                    if type(abundance_table_args) is not dict:
+                        raise RuntimeError("abundance_table_args must be a dictionary")
+                    ad.set_field_parameter("reading_func_args",abundance_table_args)
+
                 my_ion = \
                   line.field[:line.field.find("number_density")]
                 on_ion = my_ion.split("_")
@@ -393,7 +404,7 @@ class SpectrumGenerator(AbsorptionSpectrum):
                 # because there is only one naming convention for these fields:
                 # X_pY_number_density
                 if on_ion[1]:
-                    print('made it to add_ion_number_density_field in make_spectrum in     spectrum_generator.py')
+                    print('made it to add_ion_number_density_field in make_spectrum in spectrum_generator.py')
                     my_lev = int(on_ion[1][1:]) + 1
                     mylog.info("Creating %s from ray's density, "
                                "temperature, metallicity." % (line.field))
