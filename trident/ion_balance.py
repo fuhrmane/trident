@@ -925,14 +925,16 @@ def _ion_number_density(field, data):
     if data.has_field_parameter("reading_func_args"):
     	print('FIELD PARAMS MADE IT TO _ION_NUMBER_DENSITY')
     	reading_func_args = data.get_field_parameter("reading_func_args")
-    	really_cool_numbers = some_rad_science(**reading_func_args)
+    	nums = some_rad_science(**reading_func_args)
     else:
-    	really_cool_numbers = some_rad_science()
+    	nums = some_rad_science()
 
     if atom == 'H' or atom == 'He':
-        number_density = really_cool_numbers[atom] * data[fraction_field_name]
+        print(f'THE ATOM IS {atom}')
+        number_density = nums[atom] * data[fraction_field_name]
     else:
-        number_density = data.ds.quan(really_cool_numbers[atom], "1.0/Zsun") * \
+        print(f'THE ATOM IS {atom}')
+        number_density = data.ds.quan(nums[atom], "1.0/Zsun") * \
           data[ftype, fraction_field_name] * \
           data[ftype, "metallicity"]
     # convert to number density
@@ -1045,7 +1047,7 @@ def _alias_field(ds, alias_name, name):
         ds.derived_field_list.append(alias_name)
     return
 
-def some_rad_science(filename = None, modify_solar = False, ratios = True, **reading_func_args):
+def some_rad_science(filename = None, modify_solar = False, ratios = True, select_row = None, **reading_func_args):
     """
     Dictates stellar abundances used in calculating ion balances.
     If filename = None, solar abundances will be used. None is the default.
@@ -1060,7 +1062,7 @@ If ratios = True, data values will be adjusted to accomodate chemical abundance 
 which is called in def find_elements)
 Right now, only works with datasets able to be read in as a pandas dataframe (see            read_filetype doc string)
     """
-    def read_filetype(filename, what_filetype = False, **kwargs):  
+    def read_filetype(filename, select_row = None, what_filetype = False, **kwargs):  
         """
     loads data into pandas dataframe
     accaptable filetypes: 
@@ -1070,6 +1072,7 @@ Right now, only works with datasets able to be read in as a pandas dataframe (se
         if what_filetype is not False: #may not even need this but she's here lolololol
             print('accaptable filetypes: csv, txt, ods, odt, xls, xlsx, xlsm, xlsb, odf, 			   html, fwf, json, orc, h5, hdf5')
         path, extension = filename.split('.')
+        """
         if '/' in path:
             path_list = filename.split('/')
             name = path_list[-1]
@@ -1077,22 +1080,28 @@ Right now, only works with datasets able to be read in as a pandas dataframe (se
         else:
             name = filename
             print('only filename was given. name is {}'.format(name))
+        """
         if extension == 'csv' or extension == 'txt':
-            data = pd.read_csv(name, **kwargs)
+            data = pd.read_csv(filename, **kwargs)
         if extension == 'ods' or extension == 'odt' or extension == 'xls' or extension == 		'xlsx' or extension == 'xlsm' or extension == 'xlsb' or extension == 'odf':
-            data = pd.read_excel(name, **kwargs)
+            data = pd.read_excel(filename, **kwargs)
         if extension == 'html':
-            data = pd.read_html(name, **kwargs)
+            data = pd.read_html(filename, **kwargs)
         if extension == 'fwf':
-            data = pd.read_fwf(name, **kwargs)
+            data = pd.read_fwf(filename, **kwargs)
         if extension == 'json':
-            data = pdread_json(name, **kwargs)
+            data = pdread_json(filename, **kwargs)
         if extension == 'orc':
-            data = pd.read_orc(name, **kwargs)
+            data = pd.read_orc(filename, **kwargs)
         if extension == 'h5' or extension == 'hdf5':
             assert '/' in path, 'pandas hdf reader requires filepath'
             data = pd.read_hdf(filename, **kwargs)
-        return data
+        
+        
+        if select_row is not None:
+            return data.iloc[select_row, :]
+        else:
+            return data
  
     def fix_elements(data): #technically newest_data
         """
@@ -1100,7 +1109,7 @@ Right now, only works with datasets able to be read in as a pandas dataframe (se
     keys have already been fixed using fix_key for indexing and matching to solar_abundance
         """
         print('Made it to fix_elements in reading_func')
-        g1 = data['Fe/H'] #g1, for given data value #1 -- number density of iron to hydrogen 			    of star/thing we care about
+        g1 = data['Fe'] #g1, for given data value #1 -- number density of iron to hydrogen 			    of star/thing we care about
         s1 = really_cool_numbers['Fe'] #s1, for solar data value #1 -- number density of iron to 				     hydrogen of Sun
         t1 = s1*(10**g1)
         dic = {}
@@ -1168,17 +1177,19 @@ Right now, only works with datasets able to be read in as a pandas dataframe (se
         ratios should only be False if data provided has already been corrected 
         """
         print('Made it to find_elements in some_rad_science')
-        if type(reading_func_args.pop('kwargs', None)) == dict:
+        if 'kwargs' in reading_func_args:
+            print('WE HAVE KWARGS')
             kwargs = reading_func_args.pop('kwargs', None)
             data = read_filetype(filename, **kwargs) 
         else: 
             data = read_filetype(filename)
-        newest_data = fix_keys(data)
+        newest_data = fix_key(data)
         if modify_solar == False:
             if ratios == False:
                 adjusted_data = newest_data
             if ratios is not False:
                 adjusted_data = fix_elements(newest_data)
+            #print(f'THIS IS THE ADJUSTED DATA {adjusted_data}')
             return adjusted_data
         if modify_solar is not False:
             if ratios == False:
@@ -1209,9 +1220,12 @@ Right now, only works with datasets able to be read in as a pandas dataframe (se
     if filename is not None:
             #print('USING FILE')
             print("Buckle up bc shit's about to get wriggity wRIGGITY WRECKED SON")
-            really_cool_numbers = find_elements(filename, **reading_func_args)
+            return find_elements(filename, really_cool_numbers, **reading_func_args)
+            #print(nums)
+            #return nums
 
-    return really_cool_numbers
+    else:
+    	    return really_cool_numbers
     
 
 # Taken from Cloudy documentation.
